@@ -1,0 +1,5 @@
+{
+  "name": "Image Text Extractor",
+  "description": "An application that analyzes uploaded images, providing a detailed text description. It specializes in transcribing doctor's prescriptions, clearly listing medications, dosages, and instructions.",
+  "requestFramePermissions": []
+}
