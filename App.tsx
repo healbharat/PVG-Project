@@ -1,12 +1,43 @@
 
 import React, { useState, useCallback } from 'react';
-import { analyzeImage } from './services/geminiService';
-import { UploadIcon, ImageIcon, SparklesIcon, AlertTriangleIcon } from './components/Icons';
+import { analyzeImage, PrescriptionData, Medicine } from './services/geminiService';
+import { UploadIcon, ImageIcon, SparklesIcon, AlertTriangleIcon, UserIcon, PillIcon, ClockIcon, InfoIcon, BeakerIcon, HashIcon } from './components/Icons';
+
+const MedicineInfo: React.FC<{ icon: React.ReactNode; label: string; value?: string | null }> = ({ icon, label, value }) => {
+  if (!value) return null;
+  return (
+    <div className="flex items-start text-sm">
+      <div className="flex-shrink-0 w-5 h-5 text-gray-400 mr-3 mt-0.5">{icon}</div>
+      <div>
+        <span className="font-semibold text-gray-300">{label}:</span>
+        <span className="ml-2 text-gray-200">{value}</span>
+      </div>
+    </div>
+  );
+};
+
+const MedicineCard: React.FC<{ medicine: Medicine }> = ({ medicine }) => {
+  return (
+    <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md transform hover:scale-[1.02] hover:border-blue-500/50 transition-all duration-300">
+      <h5 className="text-lg font-bold text-blue-300 flex items-center mb-3">
+        <PillIcon className="w-5 h-5 mr-2" />
+        {medicine.name}
+      </h5>
+      <div className="space-y-2 pl-1">
+        <MedicineInfo icon={<BeakerIcon className="w-5 h-5"/>} label="Dosage" value={medicine.dosage} />
+        <MedicineInfo icon={<ClockIcon className="w-5 h-5"/>} label="Frequency" value={medicine.frequency} />
+        <MedicineInfo icon={<HashIcon className="w-5 h-5"/>} label="Quantity" value={medicine.quantity} />
+        <MedicineInfo icon={<InfoIcon className="w-5 h-5"/>} label="Notes" value={medicine.notes} />
+      </div>
+    </div>
+  );
+};
+
 
 const App: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [generatedText, setGeneratedText] = useState<string>('');
+  const [analysisResult, setAnalysisResult] = useState<PrescriptionData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
@@ -15,7 +46,7 @@ const App: React.FC = () => {
     const file = event.target.files?.[0];
     if (file) {
       setImageFile(file);
-      setGeneratedText('');
+      setAnalysisResult(null);
       setError('');
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -31,13 +62,13 @@ const App: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    setGeneratedText('');
+    setAnalysisResult(null);
     setError('');
     setIsAnimating(true);
 
     try {
-      const text = await analyzeImage(imageFile);
-      setGeneratedText(text);
+      const result = await analyzeImage(imageFile);
+      setAnalysisResult(result);
     } catch (err: any) {
       setError(`An error occurred: ${err.message}`);
     } finally {
@@ -67,14 +98,55 @@ const App: React.FC = () => {
       );
     }
 
-    if (generatedText) {
+    if (analysisResult) {
+      if (!analysisResult.patientName && (!analysisResult.medicines || analysisResult.medicines.length === 0)) {
+        return (
+          <div className="h-full overflow-y-auto p-4 md:p-6 bg-gray-800 rounded-lg">
+             <h3 className="text-xl font-bold text-blue-300 flex items-center mb-4">
+               <ImageIcon className="w-6 h-6 mr-2 text-blue-400" />
+               Image Description
+             </h3>
+             <p className="text-gray-300 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+               {analysisResult.otherInfo || "No detailed description was generated."}
+             </p>
+          </div>
+        );
+      }
+
       return (
-        <div className="h-full overflow-y-auto p-4 md:p-6 bg-gray-800 rounded-lg relative">
-          <h3 className="text-xl font-bold text-blue-300 flex items-center mb-4">
-            <SparklesIcon className="w-6 h-6 mr-2 text-blue-400" />
-            Analysis Result
+        <div className="h-full overflow-y-auto p-2 md:p-4 space-y-6">
+          <h3 className="text-2xl font-bold text-blue-300 flex items-center mb-2 px-2">
+            <SparklesIcon className="w-7 h-7 mr-3 text-blue-400" />
+            Prescription Analysis
           </h3>
-          <p className="text-gray-300 whitespace-pre-wrap font-mono text-sm leading-relaxed">{generatedText}</p>
+
+          {analysisResult.patientName && (
+            <div className="bg-gradient-to-r from-gray-800 to-gray-800/50 p-4 rounded-lg border border-gray-700 shadow-lg">
+              <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center">
+                <UserIcon className="w-5 h-5 mr-2" />
+                Patient
+              </h4>
+              <p className="text-2xl font-bold text-white">{analysisResult.patientName}</p>
+            </div>
+          )}
+
+          {analysisResult.medicines && analysisResult.medicines.length > 0 && (
+            <div className="space-y-4">
+              {analysisResult.medicines.map((med, index) => (
+                <MedicineCard key={index} medicine={med} />
+              ))}
+            </div>
+          )}
+          
+          {analysisResult.otherInfo && (
+             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 mt-4">
+              <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center">
+                <InfoIcon className="w-5 h-5 mr-2" />
+                Additional Notes
+              </h4>
+              <p className="text-gray-300 whitespace-pre-wrap font-mono text-sm leading-relaxed">{analysisResult.otherInfo}</p>
+            </div>
+          )}
         </div>
       );
     }
@@ -83,7 +155,7 @@ const App: React.FC = () => {
       <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 border-2 border-dashed border-gray-700 rounded-lg">
         <SparklesIcon className="w-16 h-16" />
         <p className="mt-4 text-lg">Your analysis will appear here</p>
-        <p className="text-sm">Upload an image and click "Analyze" to begin.</p>
+        <p className="text-sm">Upload a prescription and click "Analyze" to begin.</p>
       </div>
     );
   };
@@ -129,7 +201,7 @@ const App: React.FC = () => {
         </div>
       </main>
       
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900/50 backdrop-blur-sm md:static">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-900/50 backdrop-blur-sm md:static md:bg-transparent md:p-0 md:mt-8">
          <button 
             onClick={handleSubmit} 
             disabled={!imageFile || isLoading}
